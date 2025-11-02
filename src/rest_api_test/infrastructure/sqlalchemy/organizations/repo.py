@@ -2,15 +2,25 @@ from math import pi
 from uuid import UUID
 
 from sqlalchemy import Float, Integer, Select, and_, cast, func, literal, select
+from sqlalchemy.orm import selectinload
 
 from rest_api_test.application.interfaces.common.pagination import Pagination
-from rest_api_test.application.organizations.dto import GeoBBox, GeoFilter, GeoRadius
+from rest_api_test.application.organizations.dto import (
+    GeoBBox,
+    GeoFilter,
+    GeoRadius,
+    OrganizationIn,
+    OrganizationUpdate,
+)
 from rest_api_test.application.organizations.repo import OrganizationRepository
 from rest_api_test.domain.organizations.model import Organization
 from rest_api_test.infrastructure.sqlalchemy.activities.table import ActivityOrm
 from rest_api_test.infrastructure.sqlalchemy.buildings.table import BuildingOrm
 from rest_api_test.infrastructure.sqlalchemy.map_tables.org_activity import (
     OrganizationActivityMapOrm,
+)
+from rest_api_test.infrastructure.sqlalchemy.map_tables.org_pnumbers import (
+    OrganizationPNumbersMapOrm,
 )
 from rest_api_test.infrastructure.sqlalchemy.organizations.mapper import to_domain
 from rest_api_test.infrastructure.sqlalchemy.setup.base_repo import AlchemyRepo
@@ -32,7 +42,11 @@ class AlchemyOrganizationRepo(OrganizationRepository, AlchemyRepo[OrganizationOr
         activity_id: UUID | None = None,
         geo: GeoFilter | None = None,
     ) -> list[Organization]:
-        query = select(OrganizationOrm).distinct(OrganizationOrm.id)
+        query = (
+            select(OrganizationOrm)
+            .distinct(OrganizationOrm.id)
+            .options(self._activities_tree_loader())
+        )
 
         if name:
             pattern = f"%{name}%"
@@ -59,6 +73,73 @@ class AlchemyOrganizationRepo(OrganizationRepository, AlchemyRepo[OrganizationOr
         rows = res.scalars().all()
 
         return [to_domain(o) for o in rows]
+
+    async def get_by_id(self, org_id: UUID) -> Organization | None:
+        query = (
+            select(OrganizationOrm)
+            .distinct(OrganizationOrm.id)
+            .where(OrganizationOrm.id == org_id)
+            .options(self._activities_tree_loader())
+        )
+        res = await self._session.scalar(query)
+        if res:
+            return to_domain(res)
+        return None
+
+    async def create(self, payload: OrganizationIn) -> Organization:
+        org = await self._create(payload.model_dump())
+        return to_domain(org)
+
+    async def assign_phone_numbers(self, org_id: UUID, ids: list[UUID]) -> None:
+        payload = [
+            {"organization_id": org_id, "phone_number_id": phone_id} for phone_id in ids
+        ]
+        await self._add_relation(OrganizationPNumbersMapOrm, payload)
+
+    async def unassign_phone_numbers(self, org_id: UUID, ids: list[UUID]) -> None:
+        if not ids:
+            return
+        await self._drop_relation(
+            OrganizationPNumbersMapOrm,
+            OrganizationPNumbersMapOrm.organization_id == org_id,
+            OrganizationPNumbersMapOrm.phone_number_id.in_(ids),
+        )
+
+    async def assign_activities(self, org_id: UUID, ids: list[UUID]) -> None:
+        payload = [
+            {"organization_id": org_id, "activity_id": activity_id}
+            for activity_id in ids
+        ]
+        await self._add_relation(OrganizationActivityMapOrm, payload)
+
+    async def unassign_activities(self, org_id: UUID, ids: list[UUID]) -> None:
+        if not ids:
+            return
+        await self._drop_relation(
+            OrganizationActivityMapOrm,
+            OrganizationActivityMapOrm.organization_id == org_id,
+            OrganizationActivityMapOrm.activity_id.in_(ids),
+        )
+
+    async def update_by_id(
+        self, org_id: UUID, payload: OrganizationUpdate
+    ) -> Organization:
+        res = await self._update_by_id(org_id, payload.model_dump())
+        return to_domain(res)
+
+    async def delete_by_id(self, org_id: UUID) -> None:
+        await self._delete(org_id)
+
+    def _activities_tree_loader(self):
+        """
+        Builds a nested selectinload chain for
+        OrganizationOrm.activities -> ActivityOrm.children
+        to the depth settings.activities_depth.
+        """
+        loader = selectinload(OrganizationOrm.activities)
+        for _ in range(settings.activities_depth):
+            loader = loader.selectinload(ActivityOrm.children)
+        return loader
 
     def _activity_ids_with_descendants(self, root_id: UUID) -> Select[tuple[UUID]]:
         base = (

@@ -1,8 +1,7 @@
 from types import TracebackType
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from rest_api_test.application.interfaces.common.uow import UnitOfWork
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AlchemyUnitOfWork(UnitOfWork):

@@ -19,8 +19,10 @@ class ActivityOrm(Base):
     parent: Mapped[ActivityOrm | None] = relationship(
         back_populates="children", remote_side="ActivityOrm.id", passive_deletes=True
     )
-    children: Mapped[list[ActivityOrm]] = relationship(back_populates="parent")
+    children: Mapped[list[ActivityOrm]] = relationship(
+        back_populates="parent", lazy="selectin"
+    )
 
-    organizations: Mapped["OrganizationOrm"] = relationship(
+    organizations: Mapped[list[OrganizationOrm]] = relationship(
         secondary="organizations_activities_map", back_populates="activities"
     )

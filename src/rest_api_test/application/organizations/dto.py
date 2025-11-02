@@ -4,6 +4,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, confloat, conint, model_validator
 
+from rest_api_test.application.activities.dto import ActivityOut
+from rest_api_test.application.phone_numbers.dto import PhoneNumberOut
+
 
 class GeoFilterKindEnum(StrEnum):
     RADIUS = "radius"
@@ -15,14 +18,14 @@ class GeoFilterBase(BaseModel):
 
 
 class GeoRadius(GeoFilterBase):
-    kind = GeoFilterKindEnum.RADIUS
+    kind: GeoFilterKindEnum = GeoFilterKindEnum.RADIUS
     lat: Annotated[float, confloat(ge=-90, le=90)]
     lon: Annotated[float, confloat(ge=-180, le=180)]
-    radius_m: Annotated[float, conint(gt=0, le=100_000)]
+    radius_m: Annotated[int, conint(gt=0, le=100_000)]
 
 
 class GeoBBox(GeoFilterBase):
-    kind = GeoFilterKindEnum.BBOX
+    kind: GeoFilterKindEnum = GeoFilterKindEnum.BBOX
     lat_min: Annotated[float, confloat(ge=-90, le=90)]
     lat_max: Annotated[float, confloat(ge=-90, le=90)]
     lon_min: Annotated[float, confloat(ge=-180, le=180)]
@@ -53,9 +56,18 @@ class OrganizationsQuery(BaseModel):
         return self
 
 
+class OrganizationIn(BaseModel):
+    name: str
+    building_id: UUID
+
+
+class OrganizationUpdate(OrganizationIn):
+    pass
+
+
 class OrganizationOut(BaseModel):
     id: UUID
     name: str
-    phone_numbers: list[PhoneNumber]
-    activities: list[Activity]
+    phone_numbers: list[PhoneNumberOut]
+    activities: list[ActivityOut]
     building_id: UUID

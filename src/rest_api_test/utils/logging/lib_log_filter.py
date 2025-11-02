@@ -1,6 +1,6 @@
 from logging import Filter, LogRecord, getLevelNamesMapping
 
-from fastapi_solid.utils.config.settings import get_settings
+from rest_api_test.utils.config.settings import get_settings
 
 settings = get_settings()
 

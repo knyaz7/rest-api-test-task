@@ -1,8 +1,9 @@
 import logging
 
-from fastapi_solid.utils.config.settings import get_settings
 from rich.console import Console
 from rich.logging import RichHandler
+
+from rest_api_test.utils.config.settings import get_settings
 
 from .lib_log_filter import LibraryLogFilter
 

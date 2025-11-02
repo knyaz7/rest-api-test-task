@@ -12,8 +12,9 @@ dependencies = [
     "asyncpg>=0.30.0",
     "dependency-injector>=4.48.2",
     "fastapi>=0.120.3",
+    "fastapi-cache2[redis]>=0.2.2",
     "pydantic-settings>=2.11.0",
-    "redis>=7.0.1",
+    "rich>=14.2.0",
     "sqlalchemy>=2.0.44",
     "uvicorn>=0.38.0",
 ]

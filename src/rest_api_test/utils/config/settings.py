@@ -5,7 +5,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class _Settings(BaseSettings):
-    api_port: int = 8000
+    api_port: int = 8001
+    api_token_header_name: str = "x-api-key"
+    api_token: str
 
     logging_level: str
     logging_lib_level: str = "WARNING"
@@ -20,7 +22,8 @@ class _Settings(BaseSettings):
 
     redis_dsn: str
 
-    activities_depth: int = 3
+    # Activities depth - how much nested activities will be showed
+    activities_depth: int = 2
     earth_radius_m: int = 6_371_000
 
     @property

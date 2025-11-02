@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi_solid.application.exceptions.error_types import ErrorType
+from rest_api_test.application.exceptions.error_types import ErrorType
 
 
 class AppError(Exception):

@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, overload
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from rest_api_test.application.exceptions.app_error import NotFound
@@ -58,6 +58,41 @@ class AlchemyRepo[T: Base]:
             self.model.__class__.__name__,
         )
         return created_entities
+
+    @overload
+    async def _add_relation[V: type[Base]](
+        self, link_model: V, values: Mapping[str, Any]
+    ) -> V: ...
+    @overload
+    async def _add_relation[V: type[Base]](
+        self, link_model: V, values: Sequence[Mapping[str, Any]]
+    ) -> Sequence[V]: ...
+
+    async def _add_relation[V: type[Base]](
+        self, link_model: V, values: Mapping[str, Any] | Sequence[Mapping[str, Any]]
+    ) -> V | Sequence[V]:
+        stmt = insert(link_model).values(values).returning(link_model)
+        res = await self._session.execute(stmt)
+        if isinstance(values, dict):
+            created = res.scalar_one()
+            logger.debug(f"Created {created}")
+            return created
+        created_entities = res.scalars().all()
+        logger.debug(
+            "Created %s entities of %s",
+            len(created_entities),
+            link_model.__class__.__name__,
+        )
+        return created_entities
+
+    async def _drop_relation(self, link_model: type[Base], *conditions: Any) -> int:
+        stmt = delete(link_model)
+        if conditions:
+            stmt = stmt.where(*conditions)
+        res = await self._session.execute(stmt)
+        deleted: int = getattr(res, "rowcount", 0)
+        logger.debug("Deleted %s relations from %s", deleted, link_model.__name__)
+        return deleted
 
     async def _update_by_id(self, id: UUID, values: Mapping[str, Any]) -> T:
         stmt = (

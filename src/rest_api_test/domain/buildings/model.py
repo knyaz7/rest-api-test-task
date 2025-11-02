@@ -6,5 +6,6 @@ from uuid import UUID
 @dataclass(frozen=True)
 class Building:
     id: UUID
+    address: str
     latitude: Decimal
-    longitude: str
+    longitude: Decimal
