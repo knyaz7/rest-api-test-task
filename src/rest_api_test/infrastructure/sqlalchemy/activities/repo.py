@@ -5,15 +5,18 @@ from sqlalchemy.orm import selectinload
 
 from rest_api_test.application.activities.dto import ActivityIn, ActivityUpdate
 from rest_api_test.application.activities.repo import ActivityRepository
-from rest_api_test.application.exceptions.app_error import NotFound
+from rest_api_test.application.exceptions.app_error import AppError, NotFound
+from rest_api_test.application.exceptions.error_types import ErrorType
 from rest_api_test.application.interfaces.common.pagination import Pagination
 from rest_api_test.domain.activities.model import Activity
 from rest_api_test.infrastructure.sqlalchemy.activities.mapper import to_domain
 from rest_api_test.infrastructure.sqlalchemy.activities.table import ActivityOrm
 from rest_api_test.infrastructure.sqlalchemy.setup.base_repo import AlchemyRepo
 from rest_api_test.utils.config.settings import get_settings
+from rest_api_test.utils.logging.logger import get_logger
 
 settings = get_settings()
+logger = get_logger(__name__)
 
 
 class AlchemyActivityRepo(ActivityRepository, AlchemyRepo[ActivityOrm]):
@@ -41,11 +44,19 @@ class AlchemyActivityRepo(ActivityRepository, AlchemyRepo[ActivityOrm]):
 
     async def create(self, data: ActivityIn) -> Activity:
         entity = await self._create(data.model_dump())
-        return to_domain(entity, max_depth=settings.activities_depth)
+        entity_with_activities = await self.get_by_id(entity.id)
+        if not entity_with_activities:
+            logger.error(f"Activity {entity} not found right after creation")
+            raise AppError(ErrorType.UNKNOWN, "Internal server error")
+        return entity_with_activities
 
     async def update(self, act_id: UUID, data: ActivityUpdate) -> Activity:
         entity = await self._update_by_id(act_id, data.model_dump())
-        return to_domain(entity, max_depth=settings.activities_depth)
+        entity_with_activities = await self.get_by_id(entity.id)
+        if not entity_with_activities:
+            logger.error(f"Activity {entity} not found right after update")
+            raise AppError(ErrorType.UNKNOWN, "Internal server error")
+        return entity_with_activities
 
     async def delete_by_id(self, act_id: UUID) -> Activity:
         entity = await self._get_by_id(act_id)
